@@ -57,7 +57,10 @@ The app **fails clearly** if `SESSION_SECRET` is missing.
 
 ### 3. Create users
 
-`config/users.json` is not committed. Copy the example and add real hashes:
+Users live in `config/users.json` (an array of `{ username, passwordHash }`).
+This file **is committed** — it holds only bcrypt hashes, no plaintext — so the
+same users work locally and in the deployment. If you're starting fresh, copy
+the example:
 
 ```bash
 cp config/users.example.json config/users.json
@@ -77,6 +80,10 @@ Paste the printed hash into `config/users.json`:
   { "username": "john",   "passwordHash": "$2a$10$..." }
 ]
 ```
+
+> Keep plaintext passwords out of the repo. If you want a local reference of
+> who-has-what-password, put it in `config/users_plain.json`, which is
+> gitignored. Never commit plaintext.
 
 ### 4. Add a sample test (optional)
 
@@ -100,11 +107,13 @@ Open http://localhost:3000 and sign in.
 ## Adding a new user
 
 1. Generate a hash: `npm run generate-password-hash -- "theirPassword"`
-2. Add `{ "username": "...", "passwordHash": "..." }` to your user list —
-   either `config/users.json` (local dev) or the `USERS_JSON` value in Vercel
-   (production; see "Deploying to Vercel"). If `USERS_JSON` is set, it takes
-   precedence over the file.
-3. **Redeploy** for the change to take effect in production.
+2. Add `{ "username": "...", "passwordHash": "..." }` to `config/users.json`.
+3. Commit and push, then **redeploy** so the change ships (the file is read
+   from the deployed bundle, not a live datastore).
+
+> If you set the optional `USERS_JSON` env var (see "Deploying to Vercel"), it
+> **overrides** `config/users.json` entirely — so editing the file has no effect
+> until you also update or remove that env var.
 
 ## Adding a new test
 
@@ -158,26 +167,29 @@ else (`0`, `5`, `A`, …) is rejected.
    (framework preset: **Next.js** — no extra build settings needed).
 2. **Configure `SESSION_SECRET` in Vercel:**
    Project → **Settings → Environment Variables** → add
-   `SESSION_SECRET` with a strong random value (e.g. `openssl rand -base64 48`),
-   for the Production (and Preview) environments. Redeploy so it takes effect.
-3. Provide the users. `config/users.json` is gitignored, so it is **not** in
-   the repo or the deployment by default. Choose one:
-   - **Recommended — `USERS_JSON` env var:** in Vercel → Settings →
-     Environment Variables, add `USERS_JSON` whose value is the JSON array of
-     users (the same content as `config/users.json`, on one line). When set, it
-     takes precedence over the file, so nothing sensitive needs to be committed.
-     ```
-     USERS_JSON=[{"username":"sameer","passwordHash":"$2a$10$..."}]
-     ```
-     Produce the single-line value from your local `config/users.json` with:
-     ```bash
-     npm run print-users-json
-     ```
-   - **Or commit `config/users.json`:** un-ignore it and commit it. It contains
-     only bcrypt hashes (no plaintext), which is acceptable for this internal
-     tool.
+   `SESSION_SECRET` with a strong random value (e.g. `openssl rand -base64 48`).
+   **Select every environment you deploy to (at minimum Production).** This is
+   required — the app returns *"Unable to sign in right now"* if the running
+   deployment has no `SESSION_SECRET`.
+3. **Users ship with the repo.** `config/users.json` is committed (bcrypt hashes
+   only) and bundled into the deployment, so there's nothing else to configure —
+   just make sure it's committed and pushed.
 4. Ensure `config/tests.json` and your `data/*.xlsx` files are committed so they
    ship in the deployment.
+5. **Redeploy after any env-var change.** Environment variables are injected at
+   deploy time; editing one in the dashboard does **not** affect the
+   already-running deployment until you **Deployments → ⋯ → Redeploy**.
+
+> **`USERS_JSON` (optional, discouraged).** You can instead supply users via a
+> `USERS_JSON` env var (a one-line JSON array; generate it with
+> `npm run print-users-json`). When set it **overrides** `config/users.json`.
+> In practice this is error-prone: bcrypt hashes contain `$`, which is easily
+> mangled by copy-paste and by tools that do `$VAR` expansion (e.g. Vercel's
+> "Import .env"), producing a silent *"Invalid username or password"* for
+> known-good credentials. Committing `config/users.json` avoids this entirely,
+> which is why it's the default. If you do use `USERS_JSON`, enter it in the
+> plain Key/Value fields (not via .env import) and remember it fully replaces
+> the file.
 
 `next.config.mjs` uses `outputFileTracingIncludes` to force `data/**` and
 `config/**` into the serverless function bundle, so the deployed app can read
@@ -187,6 +199,18 @@ directly downloadable from the browser.
 > **Note:** Changes to `config/users.json`, `config/tests.json`, or any
 > `data/*.xlsx` file require a **redeploy** — they are read from the deployed
 > bundle, not a live datastore.
+
+### Troubleshooting login on Vercel
+
+| Symptom | Cause | Fix |
+| ------- | ----- | --- |
+| *"Unable to sign in right now."* | `SESSION_SECRET` is missing in the running deployment (unset, wrong environment, or set but not redeployed). | Add `SESSION_SECRET` for Production, then **redeploy**. |
+| *"Invalid username or password"* for credentials you know are correct | A `USERS_JSON` env var is set and overriding the file with mangled content (e.g. `$` in bcrypt hashes eaten by copy-paste / .env import), or a genuinely wrong password. | Remove `USERS_JSON` (fall back to the committed file) and redeploy, or re-enter it exactly. |
+| Changed an env var but nothing changed | Env vars only apply to **new** deployments. | **Deployments → ⋯ → Redeploy.** |
+| Set the secret in `.env.local` but production still fails | `.env.local` is **local-only** and gitignored — it is never uploaded to Vercel. | Set the value in **Vercel → Settings → Environment Variables**. |
+
+Tip: the deployment's **Runtime Logs** show the real server-side error (e.g.
+`[login] Failed to create session token: SESSION_SECRET is not configured.`).
 
 ---
 
@@ -204,7 +228,7 @@ app/
 components/                            TestCard, QuestionCard, AnswerOption, …
 lib/auth/{auth,session}.ts            Credential + session logic
 lib/tests/{test-loader,test-parser,answer-validator,attempt}.ts
-config/users.json                     Users (server-only, gitignored)
+config/users.json                     Users: bcrypt hashes (committed, server-only)
 config/tests.json                     Test titles + list order (server-only)
 data/*.xlsx                           Tests (server-only)
 scripts/                              Password-hash + sample-xlsx generators

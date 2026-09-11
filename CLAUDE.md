@@ -23,7 +23,7 @@ Running anything requires `SESSION_SECRET` (the app throws clearly without it �
 Internal certification-practice app. **No database, no persistence.** Next.js 15 App Router + React 19 + TS + Tailwind v3, deployed to Vercel. Read the README for the user-facing workflow; the points below are the non-obvious invariants.
 
 **State lives in three places, never a server store:**
-- **Auth** → jose HS256 JWT `{username}` (~8h) in an HttpOnly cookie. Signing/verifying is in `lib/auth/session.ts` (Edge-safe: jose only, no `fs`) so `middleware.ts` can verify it. `lib/auth/auth.ts` (`getSession`, bcrypt `verifyCredentials`) is Node-only (`import "server-only"`). It loads users from the `USERS_JSON` env var if set (used on Vercel, since `config/users.json` is gitignored and not in the repo), otherwise from `config/users.json` on disk (local-dev default).
+- **Auth** → jose HS256 JWT `{username}` (~8h) in an HttpOnly cookie. Signing/verifying is in `lib/auth/session.ts` (Edge-safe: jose only, no `fs`) so `middleware.ts` can verify it. `lib/auth/auth.ts` (`getSession`, bcrypt `verifyCredentials`) is Node-only (`import "server-only"`). Users load from `config/users.json` — which **is committed** (bcrypt hashes only) and bundled into the deployment. A `USERS_JSON` env var, **if set, overrides the file entirely**; it exists as an escape hatch but is discouraged (bcrypt `$` segments get mangled by copy-paste / .env-import, silently dropping users). `config/users_plain.json` (plaintext reference) stays gitignored.
 - **Tests** → `data/*.xlsx` on the server filesystem, read-only. One file = one test.
 - **Active attempt** → browser `sessionStorage` only, via `lib/tests/attempt.ts`. Never localStorage, never the server. This is why refresh restores progress but history is unrecoverable once the session ends.
 
@@ -40,6 +40,8 @@ Internal certification-practice app. **No database, no persistence.** Next.js 15
 ## Vercel-specific gotcha
 
 `data/` and `config/` are read dynamically (`fs.readdir`), so Next's file tracing can't detect them. `next.config.mjs` uses `outputFileTracingIncludes` to force `data/**` and `config/**` into the function bundle — **if tests or login break in a deploy but work locally, check this first.** Neither directory is under `/public`; they must stay server-only. Changing `users.json`, `tests.json`, or any `.xlsx` requires a redeploy.
+
+**Env vars only apply to new deployments.** `SESSION_SECRET` must be set for the target environment (Production at minimum) and a redeploy triggered — editing it in the dashboard doesn't touch the running deployment. `.env.local` is local-only and never uploaded. Symptom map: *"Unable to sign in right now"* → `SESSION_SECRET` missing at runtime; *"Invalid username or password"* for known-good creds → a stale/mangled `USERS_JSON` overriding the committed file. Runtime Logs show the real cause (the login route logs `[login] Failed to create session token: ...`).
 
 ## Confidential data
 
