@@ -53,7 +53,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const token = await createSessionToken(verifiedUsername);
+  // Credentials are valid; issue the session. This can only fail if the server
+  // is misconfigured (e.g. SESSION_SECRET is not set), so surface a clean error
+  // instead of an unhandled 500.
+  let token: string;
+  try {
+    token = await createSessionToken(verifiedUsername);
+  } catch (err) {
+    console.error(
+      "[login] Failed to create session token:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return NextResponse.json(
+      { error: "Unable to sign in right now. Please try again later." },
+      { status: 500 }
+    );
+  }
+
   const res = NextResponse.json({ ok: true, username: verifiedUsername });
   res.cookies.set(
     SESSION_COOKIE_NAME,
