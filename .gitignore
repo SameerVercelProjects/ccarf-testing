@@ -18,6 +18,7 @@ next-env.d.ts
 
 # real user credentials — never commit
 /config/users.json
+/config/users_plain.json
 
 # os
 .DS_Store
