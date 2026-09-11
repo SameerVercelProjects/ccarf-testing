@@ -1,0 +1,18 @@
+[
+  {
+    "username": "sameer",
+    "passwordHash": "$2a$10$LFYr7tyLcYnAhJ6gs7OD3.r.F83OlJgw7K0z.8A7TirdcNn/vNpW6"
+  },
+  {
+    "username": "kumar",
+    "passwordHash": "$2a$10$HqndyPDoPNiYYi9bRwAed.tz4zQ9tSuIcNAFB9mG6sF5dF0HNvRxK"
+  },
+  {
+    "username": "shree",
+    "passwordHash": "$2a$10$33AQvaAGVY.JmyWssYfoHepLIgTxH/J22YP0KeqcFk4I6HaCGwdsS"
+  },
+  {
+    "username": "sai",
+    "passwordHash": "$2a$10$5OXvPPbmUXA88sGtysBIr.NRKYFSc9mh3uqYyhoYdVLaA3QeGRkA2"
+  }
+]
