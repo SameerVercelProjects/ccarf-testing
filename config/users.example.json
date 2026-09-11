@@ -1,0 +1,6 @@
+[
+  {
+    "username": "sameer",
+    "passwordHash": "$2a$10$REPLACE_WITH_A_REAL_BCRYPT_HASH_GENERATED_BY_THE_SCRIPT"
+  }
+]
