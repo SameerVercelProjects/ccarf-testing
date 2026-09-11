@@ -100,8 +100,11 @@ Open http://localhost:3000 and sign in.
 ## Adding a new user
 
 1. Generate a hash: `npm run generate-password-hash -- "theirPassword"`
-2. Add `{ "username": "...", "passwordHash": "..." }` to `config/users.json`.
-3. **Redeploy** (see below). Changes to `config/users.json` require a redeploy.
+2. Add `{ "username": "...", "passwordHash": "..." }` to your user list —
+   either `config/users.json` (local dev) or the `USERS_JSON` value in Vercel
+   (production; see "Deploying to Vercel"). If `USERS_JSON` is set, it takes
+   precedence over the file.
+3. **Redeploy** for the change to take effect in production.
 
 ## Adding a new test
 
@@ -157,11 +160,24 @@ else (`0`, `5`, `A`, …) is rejected.
    Project → **Settings → Environment Variables** → add
    `SESSION_SECRET` with a strong random value (e.g. `openssl rand -base64 48`),
    for the Production (and Preview) environments. Redeploy so it takes effect.
-3. Ensure `config/users.json`, `config/tests.json`, and your `data/*.xlsx`
-   files are present in the deployment. `config/users.json` is gitignored by
-   default — either commit it for this internal tool (it contains only bcrypt
-   hashes, no plaintext) or add it through your own secure process. The Excel
-   files under `data/` and `config/tests.json` should be committed.
+3. Provide the users. `config/users.json` is gitignored, so it is **not** in
+   the repo or the deployment by default. Choose one:
+   - **Recommended — `USERS_JSON` env var:** in Vercel → Settings →
+     Environment Variables, add `USERS_JSON` whose value is the JSON array of
+     users (the same content as `config/users.json`, on one line). When set, it
+     takes precedence over the file, so nothing sensitive needs to be committed.
+     ```
+     USERS_JSON=[{"username":"sameer","passwordHash":"$2a$10$..."}]
+     ```
+     Produce the single-line value from your local `config/users.json` with:
+     ```bash
+     npm run print-users-json
+     ```
+   - **Or commit `config/users.json`:** un-ignore it and commit it. It contains
+     only bcrypt hashes (no plaintext), which is acceptable for this internal
+     tool.
+4. Ensure `config/tests.json` and your `data/*.xlsx` files are committed so they
+   ship in the deployment.
 
 `next.config.mjs` uses `outputFileTracingIncludes` to force `data/**` and
 `config/**` into the serverless function bundle, so the deployed app can read

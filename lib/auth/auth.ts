@@ -22,25 +22,41 @@ interface StoredUser {
 
 const USERS_PATH = path.join(process.cwd(), "config", "users.json");
 
+/**
+ * Load users. Precedence:
+ *   1. The USERS_JSON environment variable (a JSON array). Use this on Vercel
+ *      when config/users.json is not committed to the repo.
+ *   2. config/users.json on the filesystem (the local-dev default).
+ */
 function loadUsers(): StoredUser[] {
+  const envUsers = process.env.USERS_JSON;
   let raw: string;
-  try {
-    raw = fs.readFileSync(USERS_PATH, "utf8");
-  } catch {
-    throw new Error(
-      "Unable to read config/users.json. Create it from config/users.example.json."
-    );
+  let source: string;
+
+  if (envUsers && envUsers.trim().length > 0) {
+    raw = envUsers;
+    source = "USERS_JSON environment variable";
+  } else {
+    source = "config/users.json";
+    try {
+      raw = fs.readFileSync(USERS_PATH, "utf8");
+    } catch {
+      throw new Error(
+        "No users configured. Set the USERS_JSON environment variable, or " +
+          "create config/users.json from config/users.example.json."
+      );
+    }
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error("config/users.json is not valid JSON.");
+    throw new Error(`${source} is not valid JSON.`);
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error("config/users.json must be an array of users.");
+    throw new Error(`${source} must be a JSON array of users.`);
   }
 
   return parsed.filter(

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "generate-password-hash": "tsx scripts/generate-password-hash.ts",
-    "generate-sample-xlsx": "tsx scripts/generate-sample-xlsx.ts"
+    "generate-sample-xlsx": "tsx scripts/generate-sample-xlsx.ts",
+    "print-users-json": "tsx scripts/print-users-json.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

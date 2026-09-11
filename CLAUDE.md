@@ -11,6 +11,7 @@ npm run start                            # serve the production build
 npm run lint                             # next lint
 npm run generate-password-hash -- "pw"   # print a bcrypt hash for config/users.json
 npm run generate-sample-xlsx             # (re)write data/claude-certification.xlsx sample
+npm run print-users-json                 # config/users.json as one line -> Vercel USERS_JSON value
 ```
 
 There is **no test runner** configured. `npm run build` is the type-check gate. To smoke-test the running app, drive the HTTP flow: `POST /api/auth/login` (save the cookie) → `GET /api/tests/<id>/question?n=1` → `POST /api/tests/<id>/validate`.
@@ -22,7 +23,7 @@ Running anything requires `SESSION_SECRET` (the app throws clearly without it �
 Internal certification-practice app. **No database, no persistence.** Next.js 15 App Router + React 19 + TS + Tailwind v3, deployed to Vercel. Read the README for the user-facing workflow; the points below are the non-obvious invariants.
 
 **State lives in three places, never a server store:**
-- **Auth** → jose HS256 JWT `{username}` (~8h) in an HttpOnly cookie. Signing/verifying is in `lib/auth/session.ts` (Edge-safe: jose only, no `fs`) so `middleware.ts` can verify it. `lib/auth/auth.ts` (`getSession`, bcrypt `verifyCredentials`) is Node-only (`import "server-only"`, reads `config/users.json`).
+- **Auth** → jose HS256 JWT `{username}` (~8h) in an HttpOnly cookie. Signing/verifying is in `lib/auth/session.ts` (Edge-safe: jose only, no `fs`) so `middleware.ts` can verify it. `lib/auth/auth.ts` (`getSession`, bcrypt `verifyCredentials`) is Node-only (`import "server-only"`). It loads users from the `USERS_JSON` env var if set (used on Vercel, since `config/users.json` is gitignored and not in the repo), otherwise from `config/users.json` on disk (local-dev default).
 - **Tests** → `data/*.xlsx` on the server filesystem, read-only. One file = one test.
 - **Active attempt** → browser `sessionStorage` only, via `lib/tests/attempt.ts`. Never localStorage, never the server. This is why refresh restores progress but history is unrecoverable once the session ends.
 
